@@ -4,6 +4,7 @@
 #include <queue>
 #include <set>
 #include <iostream>
+#include <curl/curl.h>
 
 // Event table for clicking stuff
 wxBEGIN_EVENT_TABLE(cFrame, wxFrame)
@@ -13,6 +14,10 @@ wxEND_EVENT_TABLE()
 
 cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(30, 30), wxSize(500, 400))
 {
+    // create new image handler for image
+    wxJPEGHandler* handlerJPEG = new wxJPEGHandler;
+    wxImage::AddHandler(handlerJPEG);
+
     // Find Path Button
     FPBtn = new wxButton(this, 10001, "Find Path", wxPoint(50,110), wxSize(100,80));
 
@@ -45,36 +50,10 @@ cFrame::~cFrame()
 
 }
 
-// Double Click in Path List button
-void cFrame::URLButtonClicked(wxCommandEvent &evt)
-{
-    // convert wxstring object that was double-clicked to integer
-    int userNum = wxAtoi(PthList->GetString(PthList->GetSelection()).ToStdString());
-
-    // find name in map to use in url
-    std::string name = userMap[userNum];
-
-    // open the url for the selected person
-    openURL("https://github.com/" + name);
-    evt.Skip(); // tell the computer that this event has been handled
-}
-
-// https://stackoverflow.com/questions/4177744/c-os-x-open-default-browser
-void cFrame::openURL(const std::string &url_str) {
-    CFURLRef url = CFURLCreateWithBytes (
-            NULL,                        // allocator
-            (UInt8*)url_str.c_str(),     // URLBytes
-            url_str.length(),            // length
-            kCFStringEncodingASCII,      // encoding
-            NULL                         // baseURL
-    );
-    LSOpenCFURLRef(url,0);
-    CFRelease(url);
-}
-
 // Find Path button
 void cFrame::OnButtonClicked(wxCommandEvent &evt)
 {
+
     // get connections to list in wxListBox
     int in, out, result;
 
@@ -123,12 +102,343 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
             if (result == -1)
                 TotCon->SetLabel("'From User' not Found"); // error message
             else
-               TotCon->SetLabel(std::to_string(result)); // display the result
+                TotCon->SetLabel(std::to_string(result)); // display the result
         }
 
         oldFrUser = in; // old user is now what was input previously
     }
+
+
+
+    // get the url to the user profile
+    std::string FRName = "https://github.com/";
+    FRName = FRName + userMap[wxAtoi(FrUser->GetValue().ToStdString())];
+
+    // char pointer to insert into function
+    char* profileURL1 = &FRName[0];
+
+    // retrieve URL for USER profile picture
+    std::string webURL1 = RetrieveProfileURL(profileURL1);
+
+    // call the function to download image; if the download is successful
+    int num = 1;
+    if (DownloadImage1(webURL1, num)) {
+
+
+        // create image from retrieved data
+        wxString myString = "project1.jpeg";
+        wxImage* img = new wxImage("profile1.jpeg");
+
+        // rescale the image
+        img->Rescale(80, 80, wxIMAGE_QUALITY_NORMAL);
+
+        // place image in GUI
+        wxStaticBitmap* image1 = new wxStaticBitmap( this, wxID_ANY, *img, wxPoint(370,100));
+    }
+
+    // get the url to the target profile
+    std::string TrgName = "https://github.com/";
+    TrgName = TrgName + userMap[wxAtoi(TrgUser->GetValue().ToStdString())];
+
+    // char pointer to insert into function
+    char* profileURL2 = &TrgName[0];
+
+    // retrieve URL for TARGET profile picture
+    std::string webURL2 = RetrieveProfileURL(profileURL2);
+
+    // call the function to download image; if the download is successful
+    num = 2;
+    if (DownloadImage2(webURL2, num)) {
+
+
+        // create image from retrieved data
+        wxImage* img2 = new wxImage("profile2.jpeg");
+
+        // rescale the image
+        img2->Rescale(80, 80, wxIMAGE_QUALITY_NORMAL);
+
+        // place image in GUI
+        wxStaticBitmap* image2 = new wxStaticBitmap( this, wxID_ANY, *img2, wxPoint(250,100));
+    }
+
     evt.Skip(); // tell computer that this event has been handled
+}
+
+// Double Click in Path List button
+void cFrame::URLButtonClicked(wxCommandEvent &evt)
+{
+    // convert wxstring object that was double-clicked to integer
+    int userNum = wxAtoi(PthList->GetString(PthList->GetSelection()).ToStdString());
+
+    // find name in map to use in url
+    std::string name = userMap[userNum];
+
+    // open the url for the selected person
+    openURL("https://github.com/" + name);
+    evt.Skip(); // tell the computer that this event has been handled
+}
+
+// opens a browser to persons profile
+// NOTE: THIS FUNCTION IS FOR A MAC
+// BORROWED FROM: https://stackoverflow.com/questions/4177744/c-os-x-open-default-browser
+void cFrame::openURL(const std::string &webURL) {
+
+    // create reference to CFURL object using specified url
+    CFURLRef url = CFURLCreateWithBytes (NULL, (UInt8*)webURL.c_str(), webURL.length(),kCFStringEncodingASCII, NULL);
+
+    // function to open a browser and travel to the specified website in the default browser (Safari)
+    LSOpenCFURLRef(url,0);
+
+    // releases the CFURL object
+    CFRelease(url);
+}
+
+// Function to get retrieve image data
+size_t cFrame::CallBack(void *ptr, size_t size, size_t nMemb, void* userData)
+{
+    // CITE: https://stackoverflow.com/questions/42336140/using-c-curl-how-to-get-image-by-url-that-needed-user-id-password
+
+    // create stream
+    FILE* strm = (FILE*)userData;
+
+    // check for stream
+    if (!strm)
+    {
+        printf("!!! No stream\n");
+        return 0;
+    }
+
+    // write stream of pixel data to return
+    size_t pixelData = fwrite((FILE*)ptr, size, nMemb, strm);
+
+    // return the stream of data
+    return pixelData;
+}
+
+
+// Function to download a jpeg image
+// CITE: https://stackoverflow.com/questions/42336140/using-c-curl-how-to-get-image-by-url-that-needed-user-id-password
+bool cFrame::DownloadImage1(std::string& webStringURL, int num)
+{
+
+    // create file to store profile picture
+    FILE* image1 = fopen("profile1.jpeg", "wb");
+
+    char* webURL = &webStringURL[0];
+
+    // if the file could not be created, return false
+    if (!image1)
+    {
+        std::cout << "Failed to open output file!" << std::endl;
+        return false;
+    }
+
+    // pointer to CURL object
+    CURL* cURL = curl_easy_init();
+
+    // specifies the url to access
+    curl_easy_setopt(cURL, CURLOPT_URL, webURL);
+
+    // specifies where to save the image
+    curl_easy_setopt(cURL, CURLOPT_WRITEDATA, image1);
+
+    // specifies the callback function
+    curl_easy_setopt(cURL, CURLOPT_WRITEFUNCTION, CallBack);
+
+    // tells the curl to access the specified url location
+    curl_easy_setopt(cURL, CURLOPT_FOLLOWLOCATION, 1);
+
+    // request to download image
+    CURLcode request = curl_easy_perform(cURL);
+
+    // check for result of request
+    if (request) {
+        std::cout << "Failed to download JPEG!" << std::endl;
+        return false;
+    }
+
+    // initialize response code variable
+    long response = 0;
+
+    // receive the http response code
+    curl_easy_getinfo(cURL, CURLINFO_RESPONSE_CODE, &response);
+
+    // check to make sure the response code does not produce an error
+    if (!((response == 200 || response == 201) && request != CURLE_ABORTED_BY_CALLBACK))
+    {
+        std::cout << "Failure! Response code: " << response << std::endl;
+        return false;
+    }
+
+    // end curl session
+    curl_easy_cleanup(cURL);
+
+    // close output into image
+    fclose(image1);
+
+    // successful image download
+    return true;
+}
+
+
+// Function to download a jpeg image
+// CITE: https://stackoverflow.com/questions/42336140/using-c-curl-how-to-get-image-by-url-that-needed-user-id-password
+bool cFrame::DownloadImage2(std::string& webStringURL, int num)
+{
+
+    // create file to store profile picture
+    FILE* image2 = fopen("profile2.jpeg", "wb");
+
+    char* webURL = &webStringURL[0];
+
+    // if the file could not be created, return false
+    if (!image2)
+    {
+        std::cout << "Failed to open output file!" << std::endl;
+        return false;
+    }
+
+    // pointer to CURL object
+    CURL* cURL = curl_easy_init();
+
+    // specifies the url to access
+    curl_easy_setopt(cURL, CURLOPT_URL, webURL);
+
+    // specifies where to save the image
+    curl_easy_setopt(cURL, CURLOPT_WRITEDATA, image2);
+
+    // specifies the callback function
+    curl_easy_setopt(cURL, CURLOPT_WRITEFUNCTION, CallBack);
+
+    // tells the curl to access the specified url location
+    curl_easy_setopt(cURL, CURLOPT_FOLLOWLOCATION, 1);
+
+    // request to download image
+    CURLcode request = curl_easy_perform(cURL);
+
+    // check for result of request
+    if (request) {
+        std::cout << "Failed to download JPEG!" << std::endl;
+        return false;
+    }
+
+    // initialize response code variable
+    long response = 0;
+
+    // receive the http response code
+    curl_easy_getinfo(cURL, CURLINFO_RESPONSE_CODE, &response);
+
+    // check to make sure the response code does not produce an error
+    if (!((response == 200 || response == 201) && request != CURLE_ABORTED_BY_CALLBACK))
+    {
+        std::cout << "Failure! Response code: " << response << std::endl;
+        return false;
+    }
+
+    // end curl session
+    curl_easy_cleanup(cURL);
+
+    // close output into image
+    fclose(image2);
+
+    // successful image download
+    return true;
+}
+
+// CallBack function to retrieve HTML code
+// CITE:  https://stackoverflow.com/questions/9786150/save-curl-content-result-into-a-string-in-c
+size_t cFrame::CallBackHTML(void *contents, size_t size, size_t nMemb, void *userP)
+{
+    ((std::string*)userP)->append((char*)contents, size * nMemb);
+    return size * nMemb;
+}
+
+// Function to retrieve HTML code from specified URL
+// CITE:  https://stackoverflow.com/questions/9786150/save-curl-content-result-into-a-string-in-c
+std::string cFrame::RetrieveProfileURL(char* webURL)
+{
+    // create pointer to cURL object
+    CURL *cURL = curl_easy_init();
+
+    CURLcode res;
+
+    // string to read the string in the HTML code
+    std::string htmlData;
+
+    // if the curl pointer exists
+    if(cURL) {
+        //*** START BORROWED CODE
+        // specifies the URL to access
+        curl_easy_setopt(cURL, CURLOPT_URL, webURL);
+
+        // specifies the callback function
+        curl_easy_setopt(cURL, CURLOPT_WRITEFUNCTION, CallBackHTML);
+
+        // reads in the HTML string into the variable htmlData
+        curl_easy_setopt(cURL, CURLOPT_WRITEDATA, &htmlData);
+
+        res = curl_easy_perform(cURL);
+
+        // end reading of HTML code
+        curl_easy_cleanup(cURL);
+
+        //*** END BORROWED CODE
+
+        // create index for traversing through string of HTML code
+        unsigned long long index = 0;
+
+        // string to stop at
+        std::string stopSearch = "og:image";
+        std::string currSearch = htmlData.substr(0, 8);
+        int stopSize = stopSearch.size();
+
+        // while we are not at the specified line
+        while (currSearch != stopSearch)
+        {
+            // move to the next character
+            index++;
+
+            // move to the next substring
+            currSearch = htmlData.substr(index, stopSize);
+        }
+
+        // variable to store the number of ' " ' counted
+        int numQuotes = 0;
+
+        // stop at the 2rd quotation mark
+        while (numQuotes != 2)
+        {
+            // if a quotation mark is detected, increase the count of them
+            if (htmlData[index] == '"')
+                numQuotes++;
+
+            // move to the next character
+            index++;
+        }
+
+        // string to store the url, or "link", to return
+        std::string link;
+
+        // retrieve the URL
+        while (htmlData[index] != '"')
+        {
+            // concatenate character onto the URL
+            link += htmlData[index];
+
+            // move to the next character
+            index++;
+        }
+
+        // return the URL
+        //return &link[0];
+        return link;
+    }
+
+    std::string defaultLink = "https://avatars.githubusercontent.com/u/71037154?v=4";
+
+    // if failure to read the HTML occurs, return default profile picture
+    //return &defaultLink[0];
+    return defaultLink;
 }
 
 void cFrame::Graph(const std::string& fileName)
