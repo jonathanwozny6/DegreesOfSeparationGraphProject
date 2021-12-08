@@ -14,6 +14,8 @@
 class cFrame : public wxFrame
 {
 private:
+    int clicks;
+
     std::vector<std::set<unsigned int>> adjList; // adjacency list to hold number of users
     unsigned int numUsers; // total number of users in graph
     std::unordered_map<unsigned int, std::string> userMap; // map between node number and userName
@@ -24,12 +26,30 @@ private:
 
     void OnButtonClicked(wxCommandEvent &evt);  // event button for Finding the Path
     void URLButtonClicked(wxCommandEvent &evt); // event button for opening url of double clicked user
-    void openURL(const std::string &url_str);   // helper function to open url --> ONLY FOR MAC
+    void openURL(const std::string &webURL);    // helper function to open url --> ONLY FOR MAC
                                                 // https://www.codegrepper.com/code-examples/cpp/c%2B%2B+open+website+in+default+browser
                                                 // the above url has code for windows (really easy implementation)
+
+    // helper function to download an image from a url
+    bool DownloadImage1(std::string& webStringURL, int num);
+    bool DownloadImage2(std::string& webStringURL, int num);
+
+
+    // helper function for retrieving image data from a url
+    static size_t CallBack(void *ptr, size_t size, size_t nMemb, void* userData);
+
+    // helper function for Call Back to retrieve HTML code
+    static size_t CallBackHTML(void *contents, size_t size, size_t nMemb, void *userP);
+
+    // retrieves URL of github user's profile image
+    std::string RetrieveProfileURL(char* webURL);
+
+
     wxDECLARE_EVENT_TABLE(); // for events (i.e. clicking buttons)
 
 public:
+    
+    // Graph Data and Functions
     void Graph(const std::string& fileName);
     void ReadInput(const std::string& fileName);
     void Follow(const unsigned int user, const unsigned int following);
