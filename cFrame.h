@@ -25,6 +25,7 @@ private:
                    // maximum degree of separation
 
     void OnButtonClicked(wxCommandEvent &evt);  // event button for Finding the Path
+    void OnStatButtonClicked(wxCommandEvent &evt); // event button for clicking the user stats button
     void URLButtonClicked(wxCommandEvent &evt); // event button for opening url of double clicked user
     void openURL(const std::string &webURL);    // helper function to open url --> ONLY FOR MAC
                                                 // https://www.codegrepper.com/code-examples/cpp/c%2B%2B+open+website+in+default+browser
@@ -48,7 +49,7 @@ private:
     wxDECLARE_EVENT_TABLE(); // for events (i.e. clicking buttons)
 
 public:
-    
+
     // Graph Data and Functions
     void Graph(const std::string& fileName);
     void ReadInput(const std::string& fileName);
@@ -81,6 +82,15 @@ public:
 
     wxListBox * PthList = nullptr;      // "Path" List Box
 
+    wxButton * StatsBtn = nullptr;         //Shows the friend stats
+    wxStaticText * NumFrndLabel = nullptr;  // "Number of friends" label
+    wxStaticText * Underline = nullptr; // "Number of friends" label underline
+    wxStaticText * FrNumFrnd = nullptr; // Number of friends of the "From User"
+    wxStaticText * TrgNumFrnd = nullptr;// Num of friends of the "Target User"
+    wxStaticText * MutFrndLabel = nullptr;  //"List of mutual friends" label
+    wxListBox * MutFrndList = nullptr;  // List of mutual friends
+    wxStaticText * FromUserDisp = nullptr; // username of From user for display
+    wxStaticText * TargetUserDisp = nullptr; // username of Target user for display
 };
 
 #endif //UNTITLED1_CFRAME_H
