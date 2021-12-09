@@ -41,10 +41,7 @@ cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(3
     CreateStatusBar(); // Status Bar --> Good to use for error messages on bottom of frame
 
     // create graph
-    //Graph("twitter-2010.txt");
     Graph("musae_git_edges.csv"); // Github graph
-    //Graph("nodes.txt");
-    //Graph("newNodes.txt");
 }
 
 // Destructor --> not used
@@ -67,11 +64,13 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
         needDel = false;
     }
 
+    // remove timing and username displays
     delete FromUserDisp;
     delete TargetUserDisp;
     delete DijkTime;
     delete BFSTime;
 
+    // delete stats button if not deleted
     if (del == false)
     {
         delete StatsBtn;
@@ -85,17 +84,21 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
     // convert user to integer
     in = wxAtoi(FrUser->GetValue());
 
-    // THIS SHOULD BE CHANGED LATER TO ONLY ALLOW CHARACTERS/STRINGS TO BE INPUT
     // 0 is the default value when nothing is input or string is input
-    if (in == 0 && FrUser->GetValue() != "0") {
+    if ((in == 0 && FrUser->GetValue() != "0")) {
         SetStatusText("Must Input Integer Value"); // error message
+        return;
+    }
+    else if (in > 37699)
+    {
+        SetStatusText("Maximum node size is 37699. Re-input lower value.");
         return;
     }
     else {
         SetStatusText("");
         out = wxAtoi(TrgUser->GetValue()); // convert target user to integer
 
-        // find the path
+        // find the path and display
         std::vector<unsigned int> path = DijkstrasConnect(in, out);
         DijkTime = new wxStaticText(this, wxID_ANY, "Dijkstra's Time: " + DTime + " µs", wxPoint(10,360));
         FromUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(FrUser->GetValue())], wxPoint(250,95));
@@ -202,7 +205,7 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
 
     //Generate Statistics Button
     StatsBtn = new wxButton (this, 10003, "User Statistics", wxPoint( 250, 110), wxSize(200, 30));
-    del = false;
+    del = false; // stats button needs to be deleted now
 
     evt.Skip(); // tell computer that this event has been handled
 }
@@ -216,7 +219,7 @@ void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
 
     //Remove Stats button
     delete StatsBtn;
-    del = true;
+    del = true; // stats button has been deleted already
 
     //Find number of friends each
     unsigned int FrCount = GetNumFriends(FrInt);
@@ -244,7 +247,7 @@ void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
             MutFrndList->AppendString(std::to_string(user));
         }
     }
-    needDel = true;
+    needDel = true; // the stat fields need to be deleted now
 }
 
 // Double Click in Path List button
@@ -277,7 +280,7 @@ void cFrame::openURL(const std::string &webURL) {
 }
 
 // Function to get retrieve image data
-size_t cFrame::CallBack(void *ptr, size_t size, size_t nMemb, void* userData)
+size_t cFrame::CallBack(void *pointer, size_t size, size_t nMemb, void* userData)
 {
     // CITE: https://stackoverflow.com/questions/42336140/using-c-curl-how-to-get-image-by-url-that-needed-user-id-password
 
@@ -287,12 +290,12 @@ size_t cFrame::CallBack(void *ptr, size_t size, size_t nMemb, void* userData)
     // check for stream
     if (!strm)
     {
-        printf("!!! No stream\n");
+        printf("Stream was not created! \n");
         return 0;
     }
 
     // write stream of pixel data to return
-    size_t pixelData = fwrite((FILE*)ptr, size, nMemb, strm);
+    size_t pixelData = fwrite((FILE*)pointer, size, nMemb, strm);
 
     // return the stream of data
     return pixelData;
@@ -307,12 +310,13 @@ bool cFrame::DownloadImage1(std::string& webStringURL, int num)
     // create file to store profile picture
     FILE* image1 = fopen("profile1.jpeg", "wb");
 
+    // pointer to URL
     char* webURL = &webStringURL[0];
 
     // if the file could not be created, return false
     if (!image1)
     {
-        std::cout << "Failed to open output file!" << std::endl;
+        std::cout << "Failed to open output file for JPEG download!" << std::endl;
         return false;
     }
 
@@ -349,7 +353,7 @@ bool cFrame::DownloadImage1(std::string& webStringURL, int num)
     // check to make sure the response code does not produce an error
     if (!((response == 200 || response == 201) && request != CURLE_ABORTED_BY_CALLBACK))
     {
-        std::cout << "Failure! Response code: " << response << std::endl;
+        std::cout << "Response code failure: " << response << std::endl;
         return false;
     }
 
@@ -372,12 +376,13 @@ bool cFrame::DownloadImage2(std::string& webStringURL, int num)
     // create file to store profile picture
     FILE* image2 = fopen("profile2.jpeg", "wb");
 
+    // pointer to URL
     char* webURL = &webStringURL[0];
 
     // if the file could not be created, return false
     if (!image2)
     {
-        std::cout << "Failed to open output file!" << std::endl;
+        std::cout << "Failed to open output file for JPEG download!" << std::endl;
         return false;
     }
 
@@ -414,7 +419,7 @@ bool cFrame::DownloadImage2(std::string& webStringURL, int num)
     // check to make sure the response code does not produce an error
     if (!((response == 200 || response == 201) && request != CURLE_ABORTED_BY_CALLBACK))
     {
-        std::cout << "Failure! Response code: " << response << std::endl;
+        std::cout << "Response code failure: " << response << std::endl;
         return false;
     }
 
@@ -430,9 +435,10 @@ bool cFrame::DownloadImage2(std::string& webStringURL, int num)
 
 // CallBack function to retrieve HTML code
 // CITE:  https://stackoverflow.com/questions/9786150/save-curl-content-result-into-a-string-in-c
-size_t cFrame::CallBackHTML(void *contents, size_t size, size_t nMemb, void *userP)
+size_t cFrame::CallBackHTML(void *text, size_t size, size_t nMemb, void *userPtr)
 {
-    ((std::string*)userP)->append((char*)contents, size * nMemb);
+    // add text to string for storing
+    ((std::string*)userPtr)->append((char*)text, size * nMemb);
     return size * nMemb;
 }
 
@@ -443,7 +449,8 @@ std::string cFrame::RetrieveProfileURL(char* webURL)
     // create pointer to cURL object
     CURL *cURL = curl_easy_init();
 
-    CURLcode res;
+    // response code
+    CURLcode response;
 
     // string to read the string in the HTML code
     std::string htmlData;
@@ -460,7 +467,8 @@ std::string cFrame::RetrieveProfileURL(char* webURL)
         // reads in the HTML string into the variable htmlData
         curl_easy_setopt(cURL, CURLOPT_WRITEDATA, &htmlData);
 
-        res = curl_easy_perform(cURL);
+        // retrieve response code
+        response = curl_easy_perform(cURL);
 
         // end reading of HTML code
         curl_easy_cleanup(cURL);
