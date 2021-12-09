@@ -5,6 +5,8 @@
 #include <iostream>
 #include <curl/curl.h>
 #include <math.h>
+#include <chrono>
+
 
 // Event table for clicking stuff
 wxBEGIN_EVENT_TABLE(cFrame, wxFrame)
@@ -13,7 +15,7 @@ wxBEGIN_EVENT_TABLE(cFrame, wxFrame)
     EVT_BUTTON(10003, cFrame::OnStatButtonClicked)
 wxEND_EVENT_TABLE()
 
-cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(30, 30), wxSize(500, 400))
+cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(30, 30), wxSize(500, 440))
 {
     // create new image handler for image
     wxJPEGHandler* handlerJPEG = new wxJPEGHandler;
@@ -55,14 +57,27 @@ cFrame::~cFrame()
 void cFrame::OnButtonClicked(wxCommandEvent &evt)
 {
     //Remove Stat Fields
-    delete NumFrndLabel;
-    delete Underline;
-    delete FrNumFrnd;
-    delete TrgNumFrnd;
-    delete MutFrndLabel;
-    delete MutFrndList;
+    if (needDel == true){
+        delete NumFrndLabel;
+        delete Underline;
+        delete FrNumFrnd;
+        delete TrgNumFrnd;
+        delete MutFrndLabel;
+        delete MutFrndList;
+        needDel = false;
+    }
+
     delete FromUserDisp;
     delete TargetUserDisp;
+    delete DijkTime;
+    delete BFSTime;
+
+    if (del == false)
+    {
+        delete StatsBtn;
+        del = true;
+    }
+
 
     // get connections to list in wxListBox
     int in, out, result;
@@ -82,6 +97,9 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
 
         // find the path
         std::vector<unsigned int> path = DijkstrasConnect(in, out);
+        DijkTime = new wxStaticText(this, wxID_ANY, "Dijkstra's Time: " + DTime + " µs", wxPoint(10,360));
+        FromUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(FrUser->GetValue())], wxPoint(250,95));
+        TargetUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(TrgUser->GetValue())], wxPoint(370, 95));
 
         // clear the list box
         PthList->Clear();
@@ -128,6 +146,7 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
             else
                 TotCon->SetLabel(std::to_string(result)); // display the result
         }
+        BFSTime = new wxStaticText(this, wxID_ANY, "BFS Time: " + BTime + " µs", wxPoint(10, 380));
 
         oldFrUser = in; // old user is now what was input previously
     }
@@ -183,6 +202,7 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
 
     //Generate Statistics Button
     StatsBtn = new wxButton (this, 10003, "User Statistics", wxPoint( 250, 110), wxSize(200, 30));
+    del = false;
 
     evt.Skip(); // tell computer that this event has been handled
 }
@@ -196,6 +216,7 @@ void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
 
     //Remove Stats button
     delete StatsBtn;
+    del = true;
 
     //Find number of friends each
     unsigned int FrCount = GetNumFriends(FrInt);
@@ -208,8 +229,6 @@ void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
     TrgNumFrnd = new wxStaticText(this, wxID_ANY, std::to_string(TrgCount), wxPoint(401, 150), wxSize(200, 50));
     MutFrndLabel = new wxStaticText(this, wxID_ANY, "Mutual Friends:", wxPoint(250, 190), wxSize(200, 30));
     MutFrndList = new wxListBox(this, 10002, wxPoint(250,210), wxSize(230,150));
-    FromUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(FrUser->GetValue())], wxPoint(250,95));
-    TargetUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(TrgUser->GetValue())], wxPoint(370, 95));
 
     // find the path
     std::set<unsigned int> friends = GetMutualFriends(FrInt, TrgInt);
@@ -225,6 +244,7 @@ void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
             MutFrndList->AppendString(std::to_string(user));
         }
     }
+    needDel = true;
 }
 
 // Double Click in Path List button
@@ -593,6 +613,9 @@ unsigned int cFrame::GetNumUsers()
 
 unsigned int cFrame::BFSConnect(const unsigned int user, const unsigned int target)
 {
+    // start of measuring time
+    auto tBegin = std::chrono::high_resolution_clock::now();
+
     // if not present in list do nothing
     if (adjList.size() < user)
         return UINT_MAX;
@@ -640,6 +663,11 @@ unsigned int cFrame::BFSConnect(const unsigned int user, const unsigned int targ
         numConn++;
     }
 
+    auto tEnd = std::chrono::high_resolution_clock::now();
+    unsigned long long int opTime;
+    opTime = std::chrono::duration_cast<std::chrono::microseconds>(tEnd - tBegin).count();
+    BTime = std::to_string(opTime);
+
     // farthest reach in breadth first search
     return numConn-1;
 }
@@ -663,6 +691,9 @@ std::vector<unsigned int> cFrame::DijkstrasConnect(const unsigned int user, cons
 
     // weight of each edge
     unsigned int weight = 1;
+
+    // start of measuring time
+    auto tBegin = std::chrono::high_resolution_clock::now();
 
     // initialize vectors and sets
     for (int i = 0; i < adjList.size(); i++)
@@ -740,6 +771,13 @@ std::vector<unsigned int> cFrame::DijkstrasConnect(const unsigned int user, cons
         // add the last edge
         numConn++;
     }
+    // eng of measuring time
+    auto tEnd = std::chrono::high_resolution_clock::now();
+
+    // calculate total time
+    unsigned long long int opTime;
+    opTime = std::chrono::duration_cast<std::chrono::microseconds>(tEnd - tBegin).count();
+    DTime = std::to_string(opTime);
 
     // if the node is found, return the number of connections
     if (found) {
