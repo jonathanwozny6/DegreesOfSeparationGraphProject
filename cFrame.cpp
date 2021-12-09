@@ -2,14 +2,15 @@
 #include <fstream>
 #include <limits.h>
 #include <queue>
-#include <set>
 #include <iostream>
 #include <curl/curl.h>
+#include <math.h>
 
 // Event table for clicking stuff
 wxBEGIN_EVENT_TABLE(cFrame, wxFrame)
     EVT_BUTTON(10001, cFrame::OnButtonClicked)
     EVT_LISTBOX_DCLICK(10002, cFrame::URLButtonClicked)
+    EVT_BUTTON(10003, cFrame::OnStatButtonClicked)
 wxEND_EVENT_TABLE()
 
 cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(30, 30), wxSize(500, 400))
@@ -26,12 +27,12 @@ cFrame::cFrame() : wxFrame(nullptr, wxID_ANY, "Degrees of Separation", wxPoint(3
     FrUseLbl = new wxStaticText(this, wxID_ANY, "Enter From User", wxPoint(10, 10), wxSize(200, 30));
     TrgUser = new wxTextCtrl(this, wxID_ANY, "", wxPoint(10,90), wxSize(200,30));
     TrgUseLbl = new wxStaticText(this, wxID_ANY, "Enter Target User", wxPoint(10, 70), wxSize(200, 30));
-    TotCon = new wxStaticText(this, wxID_ANY, "", wxPoint(355, 80), wxSize(30,30));
+    TotCon = new wxStaticText(this, wxID_ANY, "--", wxPoint(160, 170), wxSize(30,30));
 
-    PthLbl = new wxStaticText(this, wxID_ANY, "Path: ", wxPoint(10, 170), wxSize(200, 30));
-    TotConLbl = new wxStaticText(this, wxID_ANY, "Max Deg. of Separation: ", wxPoint(310, 40), wxSize(200, 30));
+    PthLbl = new wxStaticText(this, wxID_ANY, "Path: ", wxPoint(10, 190), wxSize(200, 30));
+    TotConLbl = new wxStaticText(this, wxID_ANY, "Max Deg. of Separation: ", wxPoint(10, 170), wxSize(200, 30));
 
-    PthList = new wxListBox(this, 10002, wxPoint(10,190), wxSize(460,150));
+    PthList = new wxListBox(this, 10002, wxPoint(10,210), wxSize(230,150));
 
     oldFrUser = -1; // set to default -1 for first run
 
@@ -53,6 +54,15 @@ cFrame::~cFrame()
 // Find Path button
 void cFrame::OnButtonClicked(wxCommandEvent &evt)
 {
+    //Remove Stat Fields
+    delete NumFrndLabel;
+    delete Underline;
+    delete FrNumFrnd;
+    delete TrgNumFrnd;
+    delete MutFrndLabel;
+    delete MutFrndList;
+    delete FromUserDisp;
+    delete TargetUserDisp;
 
     // get connections to list in wxListBox
     int in, out, result;
@@ -81,17 +91,31 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
             PthList->AppendString("No Connection");
         else
         {
+            std::string myTab;
+
             // print from user
-            PthList->AppendString(std::to_string(in));
+            if (std::to_string(in).length() < 4)
+                myTab = "\t\t";
+            else myTab = "\t";
+            PthList->AppendString(std::to_string(in) + myTab + userMap[in]);
 
             // if not max value (aka -1)
             if (path[0] != -1) {
                 // print users in between
                 for (int i = path.size() - 1; i > -1; i--)
-                    PthList->AppendString(std::to_string(path[i]));
+                {
+                    if (std::to_string(path[i]).length() < 4)
+                        myTab = "\t\t";
+                    else myTab = "\t";
+                    PthList->AppendString(std::to_string(path[i]) + myTab + userMap[path[i]]);
+                }
+
             }
             // print target user
-            PthList->AppendString(std::to_string(out));
+            if (std::to_string(out).length() < 4)
+                myTab = "\t\t";
+            else myTab = "\t";
+            PthList->AppendString(std::to_string(out) + myTab + userMap[out]);
         }
 
         if (in != oldFrUser)
@@ -108,8 +132,6 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
         oldFrUser = in; // old user is now what was input previously
     }
 
-
-
     // get the url to the user profile
     std::string FRName = "https://github.com/";
     FRName = FRName + userMap[wxAtoi(FrUser->GetValue().ToStdString())];
@@ -124,16 +146,14 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
     int num = 1;
     if (DownloadImage1(webURL1, num)) {
 
-
         // create image from retrieved data
-        wxString myString = "project1.jpeg";
         wxImage* img = new wxImage("profile1.jpeg");
 
         // rescale the image
         img->Rescale(80, 80, wxIMAGE_QUALITY_NORMAL);
 
         // place image in GUI
-        wxStaticBitmap* image1 = new wxStaticBitmap( this, wxID_ANY, *img, wxPoint(370,100));
+        wxStaticBitmap* image1 = new wxStaticBitmap( this, wxID_ANY, *img, wxPoint(250,10));
     }
 
     // get the url to the target profile
@@ -158,10 +178,53 @@ void cFrame::OnButtonClicked(wxCommandEvent &evt)
         img2->Rescale(80, 80, wxIMAGE_QUALITY_NORMAL);
 
         // place image in GUI
-        wxStaticBitmap* image2 = new wxStaticBitmap( this, wxID_ANY, *img2, wxPoint(250,100));
+        wxStaticBitmap* image2 = new wxStaticBitmap( this, wxID_ANY, *img2, wxPoint(370,10));
     }
 
+    //Generate Statistics Button
+    StatsBtn = new wxButton (this, 10003, "User Statistics", wxPoint( 250, 110), wxSize(200, 30));
+
     evt.Skip(); // tell computer that this event has been handled
+}
+
+// User Stats button
+void cFrame::OnStatButtonClicked(wxCommandEvent &evt)
+{
+    //Get usernums
+    unsigned int FrInt = wxAtoi(FrUser->GetValue());
+    unsigned int TrgInt = wxAtoi(TrgUser->GetValue());
+
+    //Remove Stats button
+    delete StatsBtn;
+
+    //Find number of friends each
+    unsigned int FrCount = GetNumFriends(FrInt);
+    unsigned int TrgCount = GetNumFriends(TrgInt);
+
+    //Fill in data
+    NumFrndLabel = new wxStaticText(this, wxID_ANY, "Number of Friends:", wxPoint(285, 120), wxSize(200, 30));
+    Underline = new wxStaticText(this, wxID_ANY, "____________________", wxPoint(285, 121), wxSize(200, 30));
+    FrNumFrnd = new wxStaticText(this, wxID_ANY, std::to_string(FrCount), wxPoint(289, 150), wxSize(200, 50));
+    TrgNumFrnd = new wxStaticText(this, wxID_ANY, std::to_string(TrgCount), wxPoint(401, 150), wxSize(200, 50));
+    MutFrndLabel = new wxStaticText(this, wxID_ANY, "Mutual Friends:", wxPoint(250, 190), wxSize(200, 30));
+    MutFrndList = new wxListBox(this, 10002, wxPoint(250,210), wxSize(230,150));
+    FromUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(FrUser->GetValue())], wxPoint(250,95));
+    TargetUserDisp = new wxStaticText(this, wxID_ANY, userMap[wxAtoi(TrgUser->GetValue())], wxPoint(370, 95));
+
+    // find the path
+    std::set<unsigned int> friends = GetMutualFriends(FrInt, TrgInt);
+
+    // print out the list of mutual friends
+        //Check for any mutuals
+    if (friends.empty())
+        MutFrndList->AppendString("No Mutual Friends");
+    else
+    {
+        for (auto user : friends)
+        {
+            MutFrndList->AppendString(std::to_string(user));
+        }
+    }
 }
 
 // Double Click in Path List button
