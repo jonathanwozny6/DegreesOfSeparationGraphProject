@@ -37,10 +37,10 @@ private:
 
 
     // helper function for retrieving image data from a url
-    static size_t CallBack(void *ptr, size_t size, size_t nMemb, void* userData);
+    static size_t CallBack(void *pointer, size_t size, size_t nMemb, void* userData);
 
     // helper function for Call Back to retrieve HTML code
-    static size_t CallBackHTML(void *contents, size_t size, size_t nMemb, void *userP);
+    static size_t CallBackHTML(void *text, size_t size, size_t nMemb, void *userPtr);
 
     // retrieves URL of github user's profile image
     std::string RetrieveProfileURL(char* webURL);
@@ -95,10 +95,10 @@ public:
     // timing variables
     std::string DTime;
     std::string BTime;
-
     wxStaticText * DijkTime = nullptr;
     wxStaticText * BFSTime = nullptr;
 
+    // for deletion of statistics button and numfriends info
     bool del = false;
     bool needDel = false;
 };
