@@ -1,4 +1,5 @@
 # DegreesOfSeparationGraphProject
+Link to project video: https://youtu.be/4h27FY3qFrE 
 
 # Motivation
 The motivation for this project is based off of the theory called six degrees of separation.
@@ -30,4 +31,5 @@ reading in information inputted by the GUI user, and displaying profile images a
 
 The cURL library was used to read information from HTML code online and retrieve the link to the
 Github image.  It was also used to read and download image data.
+
 
