@@ -91,6 +91,16 @@ public:
     wxListBox * MutFrndList = nullptr;  // List of mutual friends
     wxStaticText * FromUserDisp = nullptr; // username of From user for display
     wxStaticText * TargetUserDisp = nullptr; // username of Target user for display
+
+    // timing variables
+    std::string DTime;
+    std::string BTime;
+
+    wxStaticText * DijkTime = nullptr;
+    wxStaticText * BFSTime = nullptr;
+
+    bool del = false;
+    bool needDel = false;
 };
 
 #endif //UNTITLED1_CFRAME_H
